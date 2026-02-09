@@ -40,3 +40,6 @@ ENV/
 
 # Local config
 .env
+
+# Alembic
+alembic/__pycache__/

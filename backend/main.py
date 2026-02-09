@@ -1,6 +1,5 @@
 from backend.database import engine, Base
 from backend import models
-from backend.admin import setup_admin
 from backend.scheduler import start_scheduler
 from backend.routers import assets, portfolio
 from backend.i18n_utils import current_language
@@ -8,6 +7,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+from fastadmin import fastapi_app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,7 +56,7 @@ app.include_router(portfolio.router)
 models.Base.metadata.create_all(bind=engine)
 
 # Setup admin panel
-setup_admin(app)
+app.mount("/admin", fastapi_app)
 
 @app.get("/")
 async def read_root():

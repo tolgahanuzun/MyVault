@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Date, Enum, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Date, Enum, UniqueConstraint, Boolean, Text
 from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import datetime
@@ -15,6 +15,12 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     full_name = Column(String)
     
+    # FastAdmin authentication fields
+    hash_password = Column(String, nullable=True) # Mevcut kullanıcılar için nullable
+    is_superuser = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    avatar_url = Column(Text, nullable=True)
+
     portfolios = relationship("Portfolio", back_populates="user")
 
 class Asset(Base):

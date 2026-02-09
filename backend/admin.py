@@ -1,91 +1,84 @@
-from sqladmin import Admin, ModelView, BaseView, expose
+from fastadmin import SqlAlchemyModelAdmin, register, WidgetType
 from backend.models import User, Asset, Portfolio, PriceHistory
-from backend.database import engine
-from backend.i18n_utils import LazyString
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from backend.database import engine, SessionLocal
+from sqlalchemy import select, update
+import bcrypt
+import typing as tp
+import uuid
 
-def setup_admin(app):
-    admin = Admin(app, engine, templates_dir="backend/templates")
+# SQLAlchemy session maker (Sync)
+# SessionLocal is imported from backend.database to avoid duplication
 
-    class UserAdmin(ModelView, model=User):
-        name = LazyString("User")
-        name_plural = LazyString("Users")
-        column_list = [User.id, User.username, User.full_name]
-        column_labels = {
-            User.id: LazyString("ID"),
-            User.username: LazyString("Username"),
-            User.full_name: LazyString("Full Name")
-        }
+@register(User, sqlalchemy_sessionmaker=SessionLocal)
+class UserAdmin(SqlAlchemyModelAdmin):
+    exclude = ("hash_password",)
+    list_display = ("id", "username", "full_name", "is_superuser", "is_active")
+    list_display_links = ("id", "username")
+    search_fields = ("username", "full_name")
+    list_filter = ("is_superuser", "is_active")
+    
+    formfield_overrides = {
+        "username": (WidgetType.Input, {"required": True}),
+        "hash_password": (WidgetType.PasswordInput, {"passwordModalForm": True}),
+        "avatar_url": (WidgetType.Upload, {"required": False}),
+    }
 
-    class AssetAdmin(ModelView, model=Asset):
-        name = LazyString("Asset")
-        name_plural = LazyString("Assets")
-        column_list = [Asset.id, Asset.code, Asset.name, Asset.type]
-        column_labels = {
-            Asset.id: LazyString("ID"),
-            Asset.code: LazyString("Code"),
-            Asset.name: LazyString("Name"),
-            Asset.type: LazyString("Type")
-        }
+    def authenticate(self, username: str, password: str) -> uuid.UUID | int | None:
+        sessionmaker = self.get_sessionmaker()
+        # Senkron session kullanımı
+        with sessionmaker() as session:
+            query = select(self.model_cls).filter_by(username=username, is_active=True, is_superuser=True)
+            result = session.scalars(query)
+            user = result.first()
+            
+            if not user:
+                return None
+            
+            # Şifre kontrolü (Eğer şifre hashli değilse veya user.hash_password boşsa kontrol et)
+            if not user.hash_password:
+                # Geçici: Şifre alanı boşsa girişe izin verilmeyebilir veya düz metin kontrolü yapılabilir
+                # Güvenlik için hash_password olması şart.
+                return None
 
-    class PortfolioAdmin(ModelView, model=Portfolio):
-        name = LazyString("Portfolio")
-        name_plural = LazyString("Portfolios")
-        column_list = [Portfolio.id, Portfolio.user_id, Portfolio.asset_id, Portfolio.quantity, Portfolio.average_cost]
-        column_labels = {
-            Portfolio.id: LazyString("ID"),
-            Portfolio.user_id: LazyString("User ID"),
-            Portfolio.asset_id: LazyString("Asset ID"),
-            Portfolio.quantity: LazyString("Quantity"),
-            Portfolio.average_cost: LazyString("Avg Cost")
-        }
+            if not bcrypt.checkpw(password.encode(), user.hash_password.encode()):
+                return None
+                
+            return user.id
 
-    class PriceHistoryAdmin(ModelView, model=PriceHistory):
-        name = LazyString("Price History")
-        name_plural = LazyString("Price Histories")
-        column_list = [PriceHistory.id, PriceHistory.asset_id, PriceHistory.date, PriceHistory.price]
-        column_sortable_list = [PriceHistory.date]
-        column_labels = {
-            PriceHistory.id: LazyString("ID"),
-            PriceHistory.asset_id: LazyString("Asset ID"),
-            PriceHistory.date: LazyString("Date"),
-            PriceHistory.price: LazyString("Price")
-        }
+    def change_password(self, id: uuid.UUID | int, password: str) -> None:
+        sessionmaker = self.get_sessionmaker()
+        with sessionmaker() as session:
+            hash_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+            # Kullanıcıyı bul ve güncelle
+            user = session.get(self.model_cls, id)
+            if user:
+                user.hash_password = hash_password
+                session.commit()
 
-    class LatestPricesView(BaseView):
-        name = "Latest Prices"
-        icon = "fa-solid fa-chart-line"
+    def orm_save_upload_field(self, obj: tp.Any, field: str, base64: str) -> None:
+        sessionmaker = self.get_sessionmaker()
+        with sessionmaker() as session:
+            # Objeyi session'a merge et veya yeniden sorgula
+            current_obj = session.get(self.model_cls, obj.id)
+            if current_obj:
+                setattr(current_obj, field, base64)
+                session.commit()
 
-        @expose("/latest-prices", methods=["GET"])
-        async def latest_prices(self, request):
-            with Session(engine) as db:
-                # Subquery to find the max date for each asset
-                subquery = db.query(
-                    PriceHistory.asset_id,
-                    func.max(PriceHistory.date).label('max_date')
-                ).group_by(PriceHistory.asset_id).subquery()
 
-                results = db.query(
-                    Asset.code,
-                    Asset.name,
-                    Asset.type,
-                    PriceHistory.price,
-                    PriceHistory.date
-                ).join(PriceHistory, Asset.id == PriceHistory.asset_id)\
-                 .join(subquery, (PriceHistory.asset_id == subquery.c.asset_id) & (PriceHistory.date == subquery.c.max_date))\
-                 .order_by(PriceHistory.date.desc())\
-                 .limit(20)\
-                 .all()
+                
 
-            return await self.templates.TemplateResponse(
-                request, 
-                "prices.html", 
-                context={"prices": results}
-            )
+@register(Asset, sqlalchemy_sessionmaker=SessionLocal)
+class AssetAdmin(SqlAlchemyModelAdmin):
+    list_display = ("id", "code", "name", "type")
+    search_fields = ("code", "name")
+    list_filter = ("type",)
 
-    admin.add_view(UserAdmin)
-    admin.add_view(AssetAdmin)
-    admin.add_view(PortfolioAdmin)
-    admin.add_view(PriceHistoryAdmin)
-    admin.add_view(LatestPricesView)
+@register(Portfolio, sqlalchemy_sessionmaker=SessionLocal)
+class PortfolioAdmin(SqlAlchemyModelAdmin):
+    list_display = ("id", "user", "asset", "quantity", "average_cost")
+    list_filter = ("user", "asset")
+
+@register(PriceHistory, sqlalchemy_sessionmaker=SessionLocal)
+class PriceHistoryAdmin(SqlAlchemyModelAdmin):
+    list_display = ("id", "asset", "date", "price")
+    list_filter = ("asset", "date")
