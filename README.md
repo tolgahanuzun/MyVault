@@ -13,16 +13,19 @@ A simple, lightweight web application for tracking stock and fund portfolios.
 ## Tech Stack
 
 - **Backend:** Python, FastAPI, SQLAlchemy, SQLite, APScheduler
+- **Admin Panel:** FastAdmin
+- **Database Migration:** Alembic
 - **Frontend:** HTML, CSS (Bootstrap), Vanilla JavaScript
 - **Data Source:** TEFAS (via crawler)
 
 ## Key Features
 
-- **Asset Management:** Add/Edit funds and stocks via Admin panel.
+- **Asset Management:** Manage funds/stocks via advanced FastAdmin panel.
 - **Portfolio Tracking:** Track quantity, cost, and current value.
 - **Automated Data:** Daily price updates from TEFAS background jobs.
 - **Charts:** Historical price visualization with Chart.js.
 - **Multi-language:** English and Turkish support (Frontend & Admin).
+- **Security:** Secure login system for Admin panel.
 
 ## Installation
 
@@ -35,19 +38,32 @@ A simple, lightweight web application for tracking stock and fund portfolios.
    pip install -r requirements.txt
    ```
 
-2. **Run:**
+2. **Database & User Setup:**
+   ```bash
+   # Create/Update database tables
+   alembic upgrade head
+   
+   # Create admin user
+   python script.py
+   ```
+   *Note: Default database is `local.db`. You can change it via `DATABASE_URL` in `.env` file.*
+
+3. **Run:**
    ```bash
    uvicorn backend.main:app --reload
    ```
 
-3. **Access:**
+4. **Access:**
    - App: [http://127.0.0.1:8000](http://127.0.0.1:8000)
-   - Admin: [http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin)
+   - Admin: [http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin) (Login with created user)
 
 ## Todo List
 
+- [x] Admin Panel Integration (FastAdmin)
+- [x] Database Migration System (Alembic)
+- [x] Admin User Management & Security
 - [ ] Mobile App (React Native/Flutter)
 - [ ] Telegram Bot Notifications
-- [ ] User Authentication (JWT)
+- [ ] End-User Authentication (JWT - Frontend)
 - [ ] Foreign Stocks & Crypto Support
 - [ ] Data Export (CSV/Excel)
