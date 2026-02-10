@@ -29,7 +29,7 @@ async def fetch_fund_prices(db: AsyncSession):
     fund_codes = list(fund_map.keys())
     
     # 2. Fetch data from TEFAS (Last 3 days to be safe)
-    start_dt = date.today() - timedelta(days=3)
+    start_dt = date.today() - timedelta(days=2)
     
     try:
         # Fetching bulk data

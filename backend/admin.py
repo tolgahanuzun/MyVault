@@ -1,6 +1,7 @@
-from fastadmin import SqlAlchemyModelAdmin, register, WidgetType
+from fastadmin import SqlAlchemyModelAdmin, register, WidgetType, action
 from backend.models import User, Asset, Portfolio, PriceHistory
 from backend.database import AsyncSessionLocal
+from backend.services.fetcher import fetch_fund_prices
 from sqlalchemy import select, update
 import bcrypt
 import typing as tp
@@ -9,8 +10,23 @@ import uuid
 # SQLAlchemy session maker (Async for FastAdmin)
 # AsyncSessionLocal is imported from backend.database
 
+class BaseAdmin(SqlAlchemyModelAdmin):
+    actions = ("delete_selected_action",)
+
+    @action(description="Seçilenleri Sil")
+    async def delete_selected_action(self, objs: list[tp.Any]) -> None:
+        sessionmaker = self.get_sessionmaker()
+        async with sessionmaker() as session:
+            for obj in objs:
+                pk = getattr(obj, "id", None)
+                if pk is not None:
+                    db_obj = await session.get(self.model_cls, pk)
+                    if db_obj:
+                        await session.delete(db_obj)
+            await session.commit()
+
 @register(User, sqlalchemy_sessionmaker=AsyncSessionLocal)
-class UserAdmin(SqlAlchemyModelAdmin):
+class UserAdmin(BaseAdmin):
     exclude = ("hash_password",)
     list_display = ("id", "username", "full_name", "is_superuser", "is_active")
     list_display_links = ("id", "username")
@@ -65,17 +81,24 @@ class UserAdmin(SqlAlchemyModelAdmin):
                 await session.commit()
 
 @register(Asset, sqlalchemy_sessionmaker=AsyncSessionLocal)
-class AssetAdmin(SqlAlchemyModelAdmin):
+class AssetAdmin(BaseAdmin):
     list_display = ("id", "code", "name", "type")
     search_fields = ("code", "name")
     list_filter = ("type",)
+    actions = ("fetch_prices_action", "delete_selected_action")
+
+    @action(description="Tüm Fon Fiyatlarını Güncelle (TEFAS)")
+    async def fetch_prices_action(self, objs: list[Asset]) -> None:
+        sessionmaker = self.get_sessionmaker()
+        async with sessionmaker() as session:
+            await fetch_fund_prices(session)
 
 @register(Portfolio, sqlalchemy_sessionmaker=AsyncSessionLocal)
-class PortfolioAdmin(SqlAlchemyModelAdmin):
+class PortfolioAdmin(BaseAdmin):
     list_display = ("id", "user", "asset", "quantity", "average_cost")
     list_filter = ("user", "asset")
 
 @register(PriceHistory, sqlalchemy_sessionmaker=AsyncSessionLocal)
-class PriceHistoryAdmin(SqlAlchemyModelAdmin):
+class PriceHistoryAdmin(BaseAdmin):
     list_display = ("id", "asset", "date", "price")
     list_filter = ("asset", "date")
