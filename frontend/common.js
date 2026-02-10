@@ -4,13 +4,13 @@ const API_BASE = "";
 // Shared Translations
 const TRANSLATIONS = {
     en: {
-        app_title: "Portfolio Tracker",
-        portfolio_title: "Portfolio Tracker",
+        app_title: "MyVault",
+        portfolio_title: "MyVault Portfolio",
         total_value: "Total Value",
         total_cost: "Total Cost",
         total_profit_loss: "Total Profit/Loss",
-        btn_new_asset: "Define New Asset",
-        btn_add_transaction: "Add Transaction",
+        btn_new_asset: "New Asset",
+        btn_add_transaction: "New Transaction",
         my_assets: "My Assets",
         col_code: "Code",
         col_name: "Name",
@@ -39,16 +39,19 @@ const TRANSLATIONS = {
         nav_home: "Home",
         chart_title: "Price History",
         my_position: "My Position",
-        loading: "Loading..."
+        loading: "Loading...",
+        sidebar_dashboard: "Dashboard",
+        sidebar_assets: "Assets",
+        sidebar_settings: "Settings"
     },
     tr: {
-        app_title: "Borsa Takip",
-        portfolio_title: "Portföy Takip",
+        app_title: "MyVault",
+        portfolio_title: "MyVault Portföy",
         total_value: "Toplam Değer",
         total_cost: "Toplam Maliyet",
         total_profit_loss: "Toplam Kâr/Zarar",
-        btn_new_asset: "Yeni Varlık Tanımla",
-        btn_add_transaction: "Alım Ekle",
+        btn_new_asset: "Yeni Varlık",
+        btn_add_transaction: "İşlem Ekle",
         my_assets: "Varlıklarım",
         col_code: "Kod",
         col_name: "Ad",
@@ -77,12 +80,16 @@ const TRANSLATIONS = {
         nav_home: "Ana Sayfa",
         chart_title: "Fiyat Geçmişi",
         my_position: "Pozisyonum",
-        loading: "Yükleniyor..."
+        loading: "Yükleniyor...",
+        sidebar_dashboard: "Kontrol Paneli",
+        sidebar_assets: "Varlıklar",
+        sidebar_settings: "Ayarlar"
     }
 };
 
 // State
 let currentLang = localStorage.getItem('app_lang') || 'en';
+let currentTheme = localStorage.getItem('app_theme') || 'light';
 
 // Helper: Format Currency
 function formatCurrency(value) {
@@ -106,17 +113,57 @@ function updatePageTranslations() {
     });
 }
 
-// Helper: Change Language
-function setLanguage(lang, callback) {
+// Helper: Change Language - Global
+window.changeLanguage = function(lang, callback) {
     if (TRANSLATIONS[lang]) {
         currentLang = lang;
         localStorage.setItem('app_lang', lang);
         updatePageTranslations();
-        if (callback) callback();
+        if (callback && typeof callback === 'function') {
+            callback();
+        }
     }
+}
+
+// Helper: Toggle Theme - Global
+window.toggleTheme = function() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('app_theme', currentTheme);
+    applyTheme();
+}
+
+function applyTheme() {
+    document.documentElement.setAttribute('data-bs-theme', currentTheme);
+    
+    // Update Icon
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) {
+        themeIcon.className = currentTheme === 'light' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
+    }
+
+    // Update Chart.js if exists
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.color = currentTheme === 'light' ? '#666' : '#ccc';
+        Chart.defaults.borderColor = currentTheme === 'light' ? '#ddd' : '#444';
+        
+        // Find and update all active charts
+        Chart.helpers.each(Chart.instances, function(instance){
+            instance.update();
+        });
+    }
+}
+
+// Helper: Toggle Sidebar - Global
+window.toggleSidebar = function() {
+    document.getElementById('sidebar').classList.toggle('active');
 }
 
 // Auto-run on load
 document.addEventListener('DOMContentLoaded', () => {
     updatePageTranslations();
+    applyTheme();
+    
+    // Sidebar toggle is safe to keep as event listener
+    const sidebarBtn = document.getElementById('sidebarCollapse');
+    if (sidebarBtn) sidebarBtn.addEventListener('click', window.toggleSidebar);
 });

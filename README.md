@@ -1,12 +1,12 @@
-# Stock & Fund Tracking Application
+# MyVault - Investment Portfolio Tracker
 
-A simple, lightweight web application for tracking stock and fund portfolios.
+A modern, lightweight web application for tracking your stock and fund investments.
 
 [🇹🇷 Türkçe README](README_TR.md)
 
 ## Screenshots
 
-| Dashboard (Index) | Admin Panel |
+| Dashboard (Dark Mode) | Admin Panel |
 |:---:|:---:|
 | <img src="img/index.png" alt="Dashboard" width="400"/> | <img src="img/admin.png" alt="Admin Panel" width="400"/> |
 
@@ -15,13 +15,14 @@ A simple, lightweight web application for tracking stock and fund portfolios.
 - **Backend:** Python, FastAPI, SQLAlchemy, SQLite, APScheduler
 - **Admin Panel:** FastAdmin
 - **Database Migration:** Alembic
-- **Frontend:** HTML, CSS (Bootstrap), Vanilla JavaScript
+- **Frontend:** HTML, CSS (Bootstrap 5), Vanilla JavaScript
 - **Data Source:** TEFAS (via crawler)
 
 ## Key Features
 
 - **Asset Management:** Manage funds/stocks via advanced FastAdmin panel.
 - **Portfolio Tracking:** Track quantity, cost, and current value.
+- **Modern Dashboard:** Responsive sidebar layout with Dark Mode support.
 - **Automated Data:** Daily price updates from TEFAS background jobs.
 - **Charts:** Historical price visualization with Chart.js.
 - **Multi-language:** English and Turkish support (Frontend & Admin).
@@ -31,8 +32,8 @@ A simple, lightweight web application for tracking stock and fund portfolios.
 
 1. **Clone & Setup:**
    ```bash
-   git clone https://github.com/tolgahanuzun/Stock-and-Fund-Tracking
-   cd borsa-takip
+   git clone https://github.com/tolgahanuzun/MyVault
+   cd MyVault
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
@@ -60,6 +61,7 @@ A simple, lightweight web application for tracking stock and fund portfolios.
 ## Todo List
 
 - [x] Admin Panel Integration (FastAdmin)
+- [x] Modern UI Overhaul (Sidebar & Dark Mode)
 - [x] Database Migration System (Alembic)
 - [x] Admin User Management & Security
 - [ ] Mobile App (React Native/Flutter)

@@ -1,0 +1,89 @@
+/* Global Styles */
+body {
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+}
+
+/* Sidebar Styles */
+#sidebar {
+    min-width: 250px;
+    max-width: 250px;
+    min-height: 100vh;
+    transition: all 0.3s;
+}
+
+#sidebar.active {
+    margin-left: -250px;
+}
+
+#sidebar .sidebar-header {
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-bs-theme="dark"] #sidebar .sidebar-header {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+#sidebar ul.components {
+    padding: 20px 0;
+}
+
+#sidebar ul li a {
+    padding: 10px 20px;
+    font-size: 1.1em;
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.2s;
+}
+
+#sidebar ul li a:hover {
+    background-color: var(--bs-tertiary-bg);
+}
+
+#sidebar ul li.active > a,
+a[aria-expanded="true"] {
+    background-color: var(--bs-secondary-bg);
+    border-left: 4px solid var(--bs-primary);
+}
+
+/* Content Area */
+#content {
+    width: 100%;
+    min-height: 100vh;
+    transition: all 0.3s;
+}
+
+/* Card Improvements */
+.card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* Dark Mode Specifics: We rely on Bootstrap's variables now */
+[data-bs-theme="dark"] .card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Profit/Loss Colors */
+.profit { color: var(--bs-success) !important; font-weight: bold; }
+.loss { color: var(--bs-danger) !important; font-weight: bold; }
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    #sidebar {
+        margin-left: -250px;
+    }
+    #sidebar.active {
+        margin-left: 0;
+    }
+    #sidebarCollapse span {
+        display: none;
+    }
+}

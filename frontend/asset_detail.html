@@ -4,71 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="detail_title">Asset Detail</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .profit { color: green; font-weight: bold; }
-        .loss { color: red; font-weight: bold; }
-        .lang-switch { position: absolute; top: 20px; right: 20px; }
-    </style>
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom Styles -->
+    <link href="/static/styles.css" rel="stylesheet">
 </head>
-<body class="bg-light">
+<body class="bg-body-tertiary">
 
-<div class="container mt-5 position-relative">
-    <div class="lang-switch">
-        <button class="btn btn-sm btn-outline-secondary" onclick="changeLanguage('tr')">TR</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="changeLanguage('en')">EN</button>
-    </div>
+<div class="d-flex">
+    <!-- Sidebar -->
+    <nav id="sidebar" class="bg-body-secondary border-end">
+        <div class="sidebar-header border-bottom">
+            <h3 class="mb-0"><i class="bi bi-wallet2 me-2"></i><span data-i18n="app_title">MyVault</span></h3>
+        </div>
 
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/" data-i18n="nav_home">Home</a></li>
-            <li class="breadcrumb-item active" aria-current="page" id="breadcrumbName">Asset</li>
-        </ol>
+        <ul class="list-unstyled components">
+            <li>
+                <a href="/"><i class="bi bi-speedometer2 me-2"></i><span data-i18n="sidebar_dashboard">Dashboard</span></a>
+            </li>
+            <li class="active">
+                <a href="#"><i class="bi bi-graph-up me-2"></i><span data-i18n="detail_title">Detail</span></a>
+            </li>
+        </ul>
+
+        <div class="p-3 border-top mt-auto">
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="changeLanguage('tr')">TR</button>
+                    <button class="btn btn-outline-secondary" onclick="changeLanguage('en')">EN</button>
+                </div>
+                <button class="btn btn-link text-body" id="themeToggle" onclick="toggleTheme()">
+                    <i class="bi bi-moon-fill" id="themeIcon" style="font-size: 1.2rem;"></i>
+                </button>
+            </div>
+        </div>
     </nav>
 
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h1 class="mb-3">
-                <span id="assetCode">CODE</span> 
-                <small class="text-muted" style="font-size: 0.5em;" id="assetName">Name</small>
-            </h1>
-            <h2 id="currentPrice">0.00 TL</h2>
-        </div>
-    </div>
+    <!-- Page Content -->
+    <div id="content" class="p-4">
+        <!-- Mobile Toggle Button -->
+        <button type="button" id="sidebarCollapse" class="btn btn-outline-secondary d-md-none mb-3">
+            <i class="bi bi-list"></i>
+        </button>
 
-    <!-- Chart Section -->
-    <div class="card mb-4">
-        <div class="card-header" data-i18n="chart_title">Price History</div>
-        <div class="card-body">
-            <canvas id="priceChart" height="50"></canvas>
-        </div>
-    </div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/" data-i18n="nav_home">Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page" id="breadcrumbName">Asset</li>
+            </ol>
+        </nav>
 
-    <!-- My Position Section -->
-    <div class="card border-primary mb-4">
-        <div class="card-header bg-primary text-white" data-i18n="my_position">My Position</div>
-        <div class="card-body">
-            <div class="row text-center">
-                <div class="col-md-3">
-                    <h5 class="text-muted" data-i18n="col_quantity">Quantity</h5>
-                    <h3 id="myQuantity">0</h3>
-                </div>
-                <div class="col-md-3">
-                    <h5 class="text-muted" data-i18n="col_avg_cost">Avg. Cost</h5>
-                    <h3 id="myAvgCost">0.00 TL</h3>
-                </div>
-                <div class="col-md-3">
-                    <h5 class="text-muted" data-i18n="col_total_value">Total Value</h5>
-                    <h3 id="myTotalValue">0.00 TL</h3>
-                </div>
-                <div class="col-md-3">
-                    <h5 class="text-muted" data-i18n="col_profit_loss">Profit/Loss</h5>
-                    <h3 id="myProfitLoss">0.00 TL</h3>
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <div>
+                <h1 class="mb-0">
+                    <span id="assetCode">CODE</span> 
+                    <small class="text-muted fs-5 ms-2" id="assetName">Name</small>
+                </h1>
+            </div>
+            <h2 id="currentPrice" class="mb-0 text-primary">0.00 TL</h2>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0" data-i18n="chart_title">Price History</h5>
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <div class="card-body">
+                <canvas id="priceChart" height="50"></canvas>
+            </div>
+        </div>
+
+        <!-- My Position Section -->
+        <div class="card border-primary mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0" data-i18n="my_position">My Position</h5>
+                <i class="bi bi-person-badge"></i>
+            </div>
+            <div class="card-body">
+                <div class="row text-center g-4">
+                    <div class="col-md-3">
+                        <h6 class="text-muted text-uppercase small" data-i18n="col_quantity">Quantity</h6>
+                        <h3 id="myQuantity" class="fw-bold">0</h3>
+                    </div>
+                    <div class="col-md-3">
+                        <h6 class="text-muted text-uppercase small" data-i18n="col_avg_cost">Avg. Cost</h6>
+                        <h3 id="myAvgCost" class="fw-bold">0.00 TL</h3>
+                    </div>
+                    <div class="col-md-3">
+                        <h6 class="text-muted text-uppercase small" data-i18n="col_total_value">Total Value</h6>
+                        <h3 id="myTotalValue" class="fw-bold text-primary">0.00 TL</h3>
+                    </div>
+                    <div class="col-md-3">
+                        <h6 class="text-muted text-uppercase small" data-i18n="col_profit_loss">Profit/Loss</h6>
+                        <h3 id="myProfitLoss" class="fw-bold">0.00 TL</h3>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

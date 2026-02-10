@@ -1,4 +1,4 @@
-# Borsa & Fon Takip Uygulaması
+# MyVault - Borsa & Fon Takip Uygulaması
 
 Hisse ve fon portföylerini takip etmek için basit, hafif bir web uygulaması.
 
@@ -31,8 +31,8 @@ Hisse ve fon portföylerini takip etmek için basit, hafif bir web uygulaması.
 
 1. **Klonla ve Hazırla:**
    ```bash
-   git clone https://github.com/tolgahanuzun/Stock-and-Fund-Tracking
-   cd borsa-takip
+   git clone https://github.com/tolgahanuzun/MyVault
+   cd MyVault
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
@@ -60,6 +60,7 @@ Hisse ve fon portföylerini takip etmek için basit, hafif bir web uygulaması.
 ## Yapılacaklar Listesi (Todo)
 
 - [x] Admin Paneli Entegrasyonu (FastAdmin)
+- [x] Modern UI (Sidebar & Dark Mode)
 - [x] Veritabanı Migrasyon Sistemi (Alembic)
 - [x] Admin Kullanıcı Yönetimi & Güvenlik
 - [ ] Mobil Uygulama (React Native/Flutter)

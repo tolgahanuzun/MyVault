@@ -3,85 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="app_title">Portfolio Tracker</title>
+    <title data-i18n="app_title">MyVault</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .profit { color: green; font-weight: bold; }
-        .loss { color: red; font-weight: bold; }
-        .lang-switch { position: absolute; top: 20px; right: 20px; }
-    </style>
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom Styles -->
+    <link href="/static/styles.css" rel="stylesheet">
 </head>
-<body class="bg-light">
+<body class="bg-body-tertiary">
 
-<div class="container mt-5 position-relative">
-    <div class="lang-switch">
-        <button class="btn btn-sm btn-outline-secondary" onclick="changeLanguage('tr')">TR</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="changeLanguage('en')">EN</button>
-    </div>
+<div class="d-flex">
+    <!-- Sidebar -->
+    <nav id="sidebar" class="bg-body-secondary border-end">
+        <div class="sidebar-header border-bottom">
+            <h3 class="mb-0"><i class="bi bi-wallet2 me-2"></i><span data-i18n="app_title">Portfolio</span></h3>
+        </div>
 
-    <h1 class="mb-4" data-i18n="portfolio_title">Portfolio Tracker</h1>
-    
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card text-white bg-primary mb-3">
-                <div class="card-header" data-i18n="total_value">Total Value</div>
-                <div class="card-body">
-                    <h3 class="card-title" id="totalValue">Loading...</h3>
+        <ul class="list-unstyled components">
+            <li class="active">
+                <a href="/"><i class="bi bi-speedometer2 me-2"></i><span data-i18n="sidebar_dashboard">Dashboard</span></a>
+            </li>
+            <li>
+                <a href="#portfolioTable"><i class="bi bi-list-ul me-2"></i><span data-i18n="sidebar_assets">Assets</span></a>
+            </li>
+        </ul>
+
+        <div class="p-3 border-top mt-auto">
+            <div class="d-grid gap-2 mb-3">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAssetModal">
+                    <i class="bi bi-plus-circle me-2"></i><span data-i18n="btn_new_asset">New Asset</span>
+                </button>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+                    <i class="bi bi-cash-coin me-2"></i><span data-i18n="btn_add_transaction">Transaction</span>
+                </button>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="changeLanguage('tr')">TR</button>
+                    <button class="btn btn-outline-secondary" onclick="changeLanguage('en')">EN</button>
+                </div>
+                <button class="btn btn-link text-body" id="themeToggle" onclick="toggleTheme()">
+                    <i class="bi bi-moon-fill" id="themeIcon" style="font-size: 1.2rem;"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Content -->
+    <div id="content" class="p-4">
+        <!-- Mobile Toggle Button -->
+        <button type="button" id="sidebarCollapse" class="btn btn-outline-secondary d-md-none mb-3">
+            <i class="bi bi-list"></i>
+        </button>
+
+        <h2 class="mb-4" data-i18n="portfolio_title">MyVault Portfolio</h2>
+        
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary mb-3 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title mb-0" data-i18n="total_value">Total Value</h5>
+                            <i class="bi bi-safe fs-4"></i>
+                        </div>
+                        <h3 class="card-text fw-bold" id="totalValue">Loading...</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-secondary mb-3 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title mb-0" data-i18n="total_cost">Total Cost</h5>
+                            <i class="bi bi-receipt fs-4"></i>
+                        </div>
+                        <h3 class="card-text fw-bold" id="totalCost">Loading...</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success mb-3 h-100" id="profitCard">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title mb-0" data-i18n="total_profit_loss">Profit/Loss</h5>
+                            <i class="bi bi-graph-up-arrow fs-4"></i>
+                        </div>
+                        <h3 class="card-text fw-bold" id="totalProfit">Loading...</h3>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card text-white bg-secondary mb-3">
-                <div class="card-header" data-i18n="total_cost">Total Cost</div>
-                <div class="card-body">
-                    <h3 class="card-title" id="totalCost">Loading...</h3>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-transparent border-bottom">
+                <h5 class="mb-0" data-i18n="my_assets">My Assets</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4" data-i18n="col_code">Code</th>
+                                <th data-i18n="col_name">Name</th>
+                                <th class="text-end" data-i18n="col_quantity">Quantity</th>
+                                <th class="text-end" data-i18n="col_avg_cost">Avg. Cost</th>
+                                <th class="text-end" data-i18n="col_current_price">Price</th>
+                                <th class="text-end" data-i18n="col_total_value">Value</th>
+                                <th class="text-end pe-4" data-i18n="col_profit_loss">P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolioTable">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-white bg-success mb-3" id="profitCard">
-                <div class="card-header" data-i18n="total_profit_loss">Total Profit/Loss</div>
-                <div class="card-body">
-                    <h3 class="card-title" id="totalProfit">Loading...</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Asset Modal Button -->
-    <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addAssetModal" data-i18n="btn_new_asset">
-        Define New Asset
-    </button>
-    
-    <!-- Add Transaction Modal Button -->
-    <button type="button" class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#addTransactionModal" data-i18n="btn_add_transaction">
-        Add Transaction
-    </button>
-
-    <div class="card">
-        <div class="card-header" data-i18n="my_assets">My Assets</div>
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th data-i18n="col_code">Code</th>
-                        <th data-i18n="col_name">Name</th>
-                        <th data-i18n="col_quantity">Quantity</th>
-                        <th data-i18n="col_avg_cost">Avg. Cost</th>
-                        <th data-i18n="col_current_price">Current Price</th>
-                        <th data-i18n="col_total_value">Total Value</th>
-                        <th data-i18n="col_profit_loss">Profit/Loss</th>
-                    </tr>
-                </thead>
-                <tbody id="portfolioTable">
-                    <!-- Filled by JS -->
-                </tbody>
-            </table>
         </div>
     </div>
 </div>
 
-<!-- New Asset Modal -->
+<!-- Add Asset Modal -->
 <div class="modal fade" id="addAssetModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -106,7 +151,7 @@
                             <option value="STOCK" data-i18n="opt_stock">Stock</option>
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary" data-i18n="btn_save">Save</button>
+                    <button type="submit" class="btn btn-primary w-100" data-i18n="btn_save">Save</button>
                 </form>
             </div>
         </div>
@@ -137,7 +182,7 @@
                         <label class="form-label" data-i18n="label_unit_cost">Unit Cost</label>
                         <input type="number" step="0.0001" class="form-control" name="average_cost" required>
                     </div>
-                    <button type="submit" class="btn btn-success" data-i18n="btn_add">Add</button>
+                    <button type="submit" class="btn btn-success w-100" data-i18n="btn_add">Add</button>
                 </form>
             </div>
         </div>

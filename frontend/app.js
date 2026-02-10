@@ -7,9 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('addTransactionForm').addEventListener('submit', handleAddTransaction);
 });
 
-// Wrapper for global setLanguage
-function changeLanguage(lang) {
-    setLanguage(lang, loadPortfolio); // Reload data after language change
+// Override global changeLanguage to reload data
+const baseChangeLanguage = window.changeLanguage;
+window.changeLanguage = function(lang) {
+    if (baseChangeLanguage) {
+        baseChangeLanguage(lang, loadPortfolio);
+    }
 }
 
 async function loadPortfolio() {

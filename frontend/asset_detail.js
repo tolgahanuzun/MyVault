@@ -15,16 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function changeLanguage(lang) {
-    setLanguage(lang, () => {
-        // Reload detail to refresh chart labels or currency formats if needed
-        const urlParams = new URLSearchParams(window.location.search);
-        const assetId = urlParams.get('id');
-        if(assetId) {
-             loadAssetDetail(assetId);
-             loadMyPosition(assetId);
-        }
-    });
+// Override global changeLanguage to reload detail
+const baseChangeLanguage = window.changeLanguage;
+window.changeLanguage = function(lang) {
+    if (baseChangeLanguage) {
+        baseChangeLanguage(lang, () => {
+            // Reload detail to refresh chart labels or currency formats
+            const urlParams = new URLSearchParams(window.location.search);
+            const assetId = urlParams.get('id');
+            if(assetId) {
+                 loadAssetDetail(assetId);
+                 loadMyPosition(assetId);
+            }
+        });
+    }
 }
 
 async function loadAssetDetail(id) {
