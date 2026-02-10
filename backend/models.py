@@ -16,7 +16,7 @@ class User(Base):
     full_name = Column(String)
     
     # FastAdmin authentication fields
-    hash_password = Column(String, nullable=True) # Mevcut kullanıcılar için nullable
+    hash_password = Column(String, nullable=True) # Nullable for existing users
     is_superuser = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     avatar_url = Column(Text, nullable=True)
@@ -46,7 +46,7 @@ class Portfolio(Base):
     user = relationship("User", back_populates="portfolios")
     asset = relationship("Asset", back_populates="portfolios")
 
-    # Bir kullanıcı bir varlıktan portföyünde sadece bir kayıt tutabilir (Miktarı artar)
+    # A user can only hold one record for an asset in their portfolio (Quantity increases)
     __table_args__ = (
         UniqueConstraint('user_id', 'asset_id', name='uix_portfolio_user_asset'),
     )
@@ -61,10 +61,9 @@ class PriceHistory(Base):
     
     asset = relationship("Asset", back_populates="price_history")
 
-    # Bir varlığın aynı tarih için sadece bir fiyatı olabilir (Gün bazlı unique olması mantıklı, 
-    # ancak DateTime olunca saat farkından dolayı unique constraint sadece tam saniye eşleşmesinde çalışır.
-    # Eğer iş kuralı "günde 1 fiyat" ise bu constraint yetersiz kalabilir ama
-    # fetcher.py içinde gün bazlı kontrol yapıyoruz.)
+    # An asset can have only one price for the same date.
+    # Note: With DateTime, uniqueness is down to the second. 
+    # Logic in fetcher.py handles daily checks.
     __table_args__ = (
         UniqueConstraint('asset_id', 'date', name='uix_price_asset_date'),
     )

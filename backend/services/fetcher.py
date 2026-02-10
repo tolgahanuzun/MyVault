@@ -1,6 +1,6 @@
 from tefas import Crawler
-from sqlalchemy.orm import Session
-from sqlalchemy import cast, Date, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import cast, Date, func, select
 from backend.models import Asset, PriceHistory, AssetType
 from datetime import datetime, date, timedelta, time
 import logging
@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def fetch_fund_prices(db: Session):
+async def fetch_fund_prices(db: AsyncSession):
     """
     Fetches latest prices for all funds in the database from TEFAS and saves them.
     Optimized to minimize DB queries and prevent hourly duplicates.
@@ -17,7 +17,8 @@ def fetch_fund_prices(db: Session):
     tefas = Crawler()
     
     # 1. Get all assets of type FUND
-    funds = db.query(Asset).filter(Asset.type == AssetType.FUND.value).all()
+    result = await db.execute(select(Asset).filter(Asset.type == AssetType.FUND.value))
+    funds = result.scalars().all()
     
     if not funds:
         logger.info("No funds found to track.")
@@ -32,6 +33,7 @@ def fetch_fund_prices(db: Session):
     
     try:
         # Fetching bulk data
+        # Note: Crawler fetch is synchronous
         result = tefas.fetch(start=start_dt.strftime("%Y-%m-%d"), 
                              columns=["code", "date", "price"])
         
@@ -57,10 +59,12 @@ def fetch_fund_prices(db: Session):
         
         today_start = datetime.combine(now.date(), time.min)
         
-        existing_records = db.query(PriceHistory.asset_id, PriceHistory.date).filter(
+        existing_records_query = select(PriceHistory.asset_id, PriceHistory.date).filter(
             PriceHistory.asset_id.in_(fund_map.values()),
             PriceHistory.date >= today_start # Greater than today 00:00
-        ).all()
+        )
+        existing_records_result = await db.execute(existing_records_query)
+        existing_records = existing_records_result.all()
         
         # Build a set of (asset_id, 'YYYY-MM-DD HH')
         # We process Python datetime objects here, which is safer than DB strftime.
@@ -94,12 +98,12 @@ def fetch_fund_prices(db: Session):
         
         # 5. Bulk Insert
         if new_records:
-            db.bulk_save_objects(new_records)
-            db.commit()
+            db.add_all(new_records)
+            await db.commit()
             logger.info(f"Added {len(new_records)} new price records (Hourly check passed).")
         else:
             logger.info(f"No new price records. All assets already have data for {current_hour_str}.")
             
     except Exception as e:
         logger.error(f"Data fetch error: {e}")
-        db.rollback()
+        await db.rollback()

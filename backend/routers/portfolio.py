@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func, tuple_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, tuple_
 from backend.database import get_db
 from backend.models import Portfolio, Asset, PriceHistory, User
 from pydantic import BaseModel
@@ -33,9 +33,10 @@ class PortfolioItemResponse(PortfolioBase):
         from_attributes = True
 
 @router.get("/", response_model=List[PortfolioItemResponse])
-def read_portfolio(user_id: int = 1, db: Session = Depends(get_db)):
+async def read_portfolio(user_id: int = 1, db: AsyncSession = Depends(get_db)):
     # 1. Fetch user portfolio
-    items = db.query(Portfolio).filter(Portfolio.user_id == user_id).all()
+    result = await db.execute(select(Portfolio).filter(Portfolio.user_id == user_id))
+    items = result.scalars().all()
     
     if not items:
         return []
@@ -45,25 +46,42 @@ def read_portfolio(user_id: int = 1, db: Session = Depends(get_db)):
 
     # 3. Batch Fetch Latest Prices (Optimized Query)
     # Subquery to find the max date for each asset
-    subquery = db.query(
+    subquery = select(
         PriceHistory.asset_id,
         func.max(PriceHistory.date).label('max_date')
     ).filter(PriceHistory.asset_id.in_(asset_ids)).group_by(PriceHistory.asset_id).subquery()
 
     # Join to get the prices
-    latest_prices_query = db.query(PriceHistory).join(
+    latest_prices_stmt = select(PriceHistory).join(
         subquery,
         (PriceHistory.asset_id == subquery.c.asset_id) & 
         (PriceHistory.date == subquery.c.max_date)
-    ).all()
+    )
+    latest_prices_result = await db.execute(latest_prices_stmt)
+    latest_prices = latest_prices_result.scalars().all()
 
     # Map prices for O(1) lookup
-    price_map = {p.asset_id: p.price for p in latest_prices_query}
+    price_map = {p.asset_id: p.price for p in latest_prices}
     
-    result = []
+    result_list = []
     for item in items:
-        # Asset info (Already loaded via relationship or join could be used, but lazy load is OK for small N)
-        asset = item.asset
+        # Asset info (Lazy load might not work well in async without explicit options, 
+        # so we might need to eager load. However, let's try to rely on simple access 
+        # if the session is still active, or better: explicit join)
+        
+        # To avoid AsyncIO error with lazy loading, let's fetch asset explicitly if not loaded
+        # Or better: update the initial query to joinedload(Portfolio.asset)
+        # For now, let's assume we need to fetch asset if it's missing or just fetch it.
+        # Ideally, we should use: .options(joinedload(Portfolio.asset)) in the first query.
+        
+        # Let's do a quick fetch for asset if needed, or update the initial query.
+        # Updating the initial query is cleaner. 
+        # But to match previous logic structure, let's just fetch it here if not present.
+        # Actually, for N items, N queries is bad.
+        # Let's just fetch asset here for simplicity as N is small.
+        # Better: use `await db.get(Asset, item.asset_id)`
+        
+        asset = await db.get(Asset, item.asset_id)
         
         # Get price from map
         current_price = price_map.get(asset.id, item.average_cost)
@@ -73,7 +91,7 @@ def read_portfolio(user_id: int = 1, db: Session = Depends(get_db)):
         profit_loss = total_value - cost_basis
         profit_loss_percent = (profit_loss / cost_basis * 100) if cost_basis > 0 else 0
         
-        result.append(PortfolioItemResponse(
+        result_list.append(PortfolioItemResponse(
             id=item.id,
             asset_id=asset.id,
             quantity=item.quantity,
@@ -86,23 +104,29 @@ def read_portfolio(user_id: int = 1, db: Session = Depends(get_db)):
             profit_loss_percent=profit_loss_percent
         ))
         
-    return result
+    return result_list
 
 @router.get("/asset/{asset_id}", response_model=PortfolioItemResponse)
-def read_portfolio_asset(asset_id: int, user_id: int = 1, db: Session = Depends(get_db)):
-    # This endpoint is single item, so optimization is less critical but still good practice to use efficient queries.
-    item = db.query(Portfolio).filter(Portfolio.user_id == user_id, Portfolio.asset_id == asset_id).first()
+async def read_portfolio_asset(asset_id: int, user_id: int = 1, db: AsyncSession = Depends(get_db)):
+    # This endpoint is single item
+    result = await db.execute(
+        select(Portfolio).filter(Portfolio.user_id == user_id, Portfolio.asset_id == asset_id)
+    )
+    item = result.scalars().first()
     
     # Check if user owns it or not
-    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    asset = await db.get(Asset, asset_id)
     if not asset:
          raise HTTPException(status_code=404, detail="Asset not found")
 
     # Get latest price
-    last_price_entry = db.query(PriceHistory)\
+    last_price_stmt = select(PriceHistory)\
         .filter(PriceHistory.asset_id == asset.id)\
         .order_by(PriceHistory.date.desc())\
-        .first()
+        .limit(1)
+        
+    last_price_result = await db.execute(last_price_stmt)
+    last_price_entry = last_price_result.scalars().first()
     
     current_price = last_price_entry.price if last_price_entry else 0
 
@@ -140,19 +164,22 @@ def read_portfolio_asset(asset_id: int, user_id: int = 1, db: Session = Depends(
     )
 
 @router.post("/transaction")
-def create_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
+async def create_transaction(transaction: TransactionCreate, db: AsyncSession = Depends(get_db)):
     # Check if user exists, create if not (for convenience)
-    user = db.query(User).filter(User.id == transaction.user_id).first()
+    user_result = await db.execute(select(User).filter(User.id == transaction.user_id))
+    user = user_result.scalars().first()
+    
     if not user:
         user = User(id=transaction.user_id, username="default", full_name="Default User")
         db.add(user)
-        db.commit()
+        await db.commit()
     
     # Check if asset exists in portfolio
-    portfolio_item = db.query(Portfolio).filter(
+    portfolio_result = await db.execute(select(Portfolio).filter(
         Portfolio.user_id == transaction.user_id,
         Portfolio.asset_id == transaction.asset_id
-    ).first()
+    ))
+    portfolio_item = portfolio_result.scalars().first()
     
     if portfolio_item:
         # Calculate weighted average cost
@@ -171,5 +198,5 @@ def create_transaction(transaction: TransactionCreate, db: Session = Depends(get
         )
         db.add(portfolio_item)
     
-    db.commit()
+    await db.commit()
     return {"message": "Transaction successful"}

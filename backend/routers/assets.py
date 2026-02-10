@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from backend.database import get_db
 from backend.models import Asset, AssetType, PriceHistory
 from pydantic import BaseModel, field_validator
@@ -17,7 +18,7 @@ class AssetBase(BaseModel):
     type: AssetType
 
     # Pydantic v2 validator (field_validator)
-    # Gelen kod ne olursa olsun büyük harfe çevir
+    # Convert incoming code to uppercase regardless of input
     @field_validator('code')
     @classmethod
     def upper_case_code(cls, v: str) -> str:
@@ -33,25 +34,32 @@ class AssetResponse(AssetBase):
         from_attributes = True # orm_mode for pydantic v2
 
 class PricePoint(BaseModel):
-    date: datetime # date -> datetime olarak değiştirildi
+    date: datetime # Changed date -> datetime
     price: float
 
 class AssetDetailResponse(AssetResponse):
     history: List[PricePoint] = []
 
 @router.get("/", response_model=List[AssetResponse])
-def read_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    assets = db.query(Asset).offset(skip).limit(limit).all()
+async def read_assets(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Asset).offset(skip).limit(limit))
+    assets = result.scalars().all()
     return assets
 
 @router.get("/{asset_id}", response_model=AssetDetailResponse)
-def read_asset_detail(asset_id: int, db: Session = Depends(get_db)):
-    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+async def read_asset_detail(asset_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Asset).filter(Asset.id == asset_id))
+    asset = result.scalars().first()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     
     # History sorted by date
-    history = db.query(PriceHistory).filter(PriceHistory.asset_id == asset_id).order_by(PriceHistory.date.asc()).all()
+    history_result = await db.execute(
+        select(PriceHistory)
+        .filter(PriceHistory.asset_id == asset_id)
+        .order_by(PriceHistory.date.asc())
+    )
+    history = history_result.scalars().all()
     
     return {
         "id": asset.id,
@@ -62,14 +70,16 @@ def read_asset_detail(asset_id: int, db: Session = Depends(get_db)):
     }
 
 @router.post("/", response_model=AssetResponse)
-def create_asset(asset: AssetCreate, db: Session = Depends(get_db)):
-    # Kod zaten validator ile büyütüldü
-    db_asset = db.query(Asset).filter(Asset.code == asset.code).first()
+async def create_asset(asset: AssetCreate, db: AsyncSession = Depends(get_db)):
+    # Code already uppercased by validator
+    result = await db.execute(select(Asset).filter(Asset.code == asset.code))
+    db_asset = result.scalars().first()
+    
     if db_asset:
         raise HTTPException(status_code=400, detail="Asset already exists")
     
     new_asset = Asset(code=asset.code, name=asset.name, type=asset.type)
     db.add(new_asset)
-    db.commit()
-    db.refresh(new_asset)
+    await db.commit()
+    await db.refresh(new_asset)
     return new_asset

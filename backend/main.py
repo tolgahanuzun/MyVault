@@ -17,12 +17,16 @@ from fastadmin import fastapi_app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create database tables
+    async with engine.begin() as conn:
+        await conn.run_sync(models.Base.metadata.create_all)
+        
     # Start scheduler on startup
     start_scheduler()
     yield
     # Actions on shutdown (e.g. scheduler.shutdown if needed)
 
-app = FastAPI(title="Borsa Takip API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Portfolio Tracker API", version="1.0.0", lifespan=lifespan)
 
 # Middleware for language handling
 @app.middleware("http")
@@ -52,9 +56,6 @@ app.mount("/static", StaticFiles(directory="frontend"), name="static")
 # Include routers
 app.include_router(assets.router)
 app.include_router(portfolio.router)
-
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
 
 # Setup admin panel
 app.mount("/admin", fastapi_app)
