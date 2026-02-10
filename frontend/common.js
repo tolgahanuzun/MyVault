@@ -1,5 +1,5 @@
-// API Base URL
-const API_BASE = "";
+// API Base URL moved to config.js
+// const API_BASE = "";
 
 // Shared Translations
 const TRANSLATIONS = {
@@ -170,22 +170,17 @@ async function loadLayoutUserData() {
     if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return;
 
     try {
-        const response = await fetch(`${API_BASE}/auth/me`, {
-            headers: Auth.getHeaders()
-        });
-        
-        if (response.ok) {
-            const user = await response.json();
-            const usernameEl = document.getElementById('topbarUsername');
-            const avatarEl = document.getElementById('topbarAvatar');
+        const user = await API.get(Config.ENDPOINTS.ME);
             
-            if (usernameEl) usernameEl.textContent = user.full_name || user.username;
-            if (avatarEl && user.avatar_url) {
-                // Add timestamp to force refresh if image changed
-                avatarEl.src = user.avatar_url + '?t=' + new Date().getTime();
-            } else if (avatarEl) {
-                 avatarEl.src = "https://via.placeholder.com/32";
-            }
+        const usernameEl = document.getElementById('topbarUsername');
+        const avatarEl = document.getElementById('topbarAvatar');
+        
+        if (usernameEl) usernameEl.textContent = user.full_name || user.username;
+        if (avatarEl && user.avatar_url) {
+            // Add timestamp to force refresh if image changed
+            avatarEl.src = user.avatar_url + '?t=' + new Date().getTime();
+        } else if (avatarEl) {
+                avatarEl.src = "https://via.placeholder.com/32";
         }
     } catch (error) {
         console.error('Failed to load user info', error);

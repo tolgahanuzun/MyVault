@@ -14,22 +14,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // Update Topbar User Info
 async function updateUserInfo() {
     try {
-        const response = await fetch(`${API_BASE}/auth/me`, {
-            headers: Auth.getHeaders()
-        });
+        const user = await API.get(Config.ENDPOINTS.ME);
         
-        if (response.ok) {
-            const user = await response.json();
-            const usernameEl = document.getElementById('topbarUsername');
-            const avatarEl = document.getElementById('topbarAvatar');
-            
-            if (usernameEl) usernameEl.textContent = user.full_name || user.username;
-            if (avatarEl && user.avatar_url) {
-                // Add timestamp to force refresh if image changed
-                avatarEl.src = user.avatar_url + '?t=' + new Date().getTime();
-            } else if (avatarEl) {
-                 avatarEl.src = "https://via.placeholder.com/32";
-            }
+        const usernameEl = document.getElementById('topbarUsername');
+        const avatarEl = document.getElementById('topbarAvatar');
+        
+        if (usernameEl) usernameEl.textContent = user.full_name || user.username;
+        if (avatarEl && user.avatar_url) {
+            // Add timestamp to force refresh if image changed
+            avatarEl.src = user.avatar_url + '?t=' + new Date().getTime();
+        } else if (avatarEl) {
+                avatarEl.src = "https://via.placeholder.com/32";
         }
     } catch (error) {
         console.error('Failed to load user info', error);
@@ -46,16 +41,7 @@ window.changeLanguage = function(lang) {
 
 async function loadPortfolio() {
     try {
-        const response = await fetch(`${API_BASE}/portfolio/`, {
-            headers: Auth.getHeaders()
-        });
-        
-        if (response.status === 401) {
-            Auth.handleUnauthorized();
-            return;
-        }
-        
-        const data = await response.json();
+        const data = await API.get(Config.ENDPOINTS.PORTFOLIO);
         
         const tableBody = document.getElementById('portfolioTable');
         tableBody.innerHTML = '';
@@ -118,16 +104,7 @@ async function loadPortfolio() {
 
 async function loadAssetsForSelect() {
     try {
-        const response = await fetch(`${API_BASE}/assets/`, {
-            headers: Auth.getHeaders()
-        });
-        
-        if (response.status === 401) {
-            Auth.handleUnauthorized();
-            return;
-        }
-
-        const data = await response.json();
+        const data = await API.get(Config.ENDPOINTS.ASSETS);
         
         const select = document.getElementById('assetSelect');
         select.innerHTML = '';
@@ -154,28 +131,17 @@ async function handleAddAsset(e) {
     };
     
     try {
-        const response = await fetch(`${API_BASE}/assets/`, {
-            method: 'POST',
-            headers: Auth.getHeaders(),
-            body: JSON.stringify(data)
-        });
+        await API.post(Config.ENDPOINTS.ASSETS, data);
         
-        if (response.status === 401) {
-            Auth.handleUnauthorized();
-            return;
-        }
-        
-        if (response.ok) {
-            alert(t.alert_asset_added);
-            loadAssetsForSelect(); // Refresh list
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addAssetModal'));
-            modal.hide();
-            e.target.reset();
-        } else {
-            alert(t.alert_error);
-        }
+        alert(t.alert_asset_added);
+        loadAssetsForSelect(); // Refresh list
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addAssetModal'));
+        modal.hide();
+        e.target.reset();
+
     } catch (error) {
         console.error('Add asset error:', error);
+        alert(t.alert_error);
     }
 }
 
@@ -190,27 +156,16 @@ async function handleAddTransaction(e) {
     };
     
     try {
-        const response = await fetch(`${API_BASE}/portfolio/transaction`, {
-            method: 'POST',
-            headers: Auth.getHeaders(),
-            body: JSON.stringify(data)
-        });
+        await API.post(Config.ENDPOINTS.TRANSACTION, data);
         
-        if (response.status === 401) {
-            Auth.handleUnauthorized();
-            return;
-        }
-        
-        if (response.ok) {
-            alert(t.alert_transaction_added);
-            loadPortfolio(); // Refresh table
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addTransactionModal'));
-            modal.hide();
-            e.target.reset();
-        } else {
-            alert(t.alert_error);
-        }
+        alert(t.alert_transaction_added);
+        loadPortfolio(); // Refresh table
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addTransactionModal'));
+        modal.hide();
+        e.target.reset();
+
     } catch (error) {
         console.error('Add transaction error:', error);
+        alert(t.alert_error);
     }
 }

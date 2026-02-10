@@ -49,8 +49,28 @@ class UserPasswordUpdate(BaseModel):
     current_password: str
     new_password: str
 
+import re
+
+def validate_password(password: str) -> bool:
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"\d", password):
+        return False
+    return True
+
 @router.post("/register", response_model=Token)
 async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Validate password complexity
+    if not validate_password(user.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long and contain uppercase, lowercase letters and numbers."
+        )
+
     # Check if user already exists
     result = await db.execute(select(User).filter(User.username == user.username))
     existing_user = result.scalars().first()

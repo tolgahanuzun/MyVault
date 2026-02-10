@@ -41,22 +41,30 @@ A modern, lightweight web application for tracking your stock and fund investmen
    pip install -r requirements.txt
    ```
 
-2. **Database & User Setup:**
+2. **Configuration:**
+   Create a `.env` file in the root directory:
+   ```env
+   SECRET_KEY=generate-a-secure-random-key-here
+   DATABASE_URL=sqlite+aiosqlite:///./local.db
+   ACCESS_TOKEN_EXPIRE_MINUTES=30
+   ```
+
+3. **Database & User Setup:**
    ```bash
    # Create/Update database tables
    alembic upgrade head
    
    # Create admin user
-   python script.py
+   python create_admin.py
    ```
    *Note: Default database is `local.db`. You can change it via `DATABASE_URL` in `.env` file.*
 
-3. **Run:**
+4. **Run:**
    ```bash
    uvicorn backend.main:app --reload
    ```
 
-4. **Access:**
+5. **Access:**
    - App: [http://127.0.0.1:8000](http://127.0.0.1:8000)
    - Admin: [http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin) (Login with created user)
 

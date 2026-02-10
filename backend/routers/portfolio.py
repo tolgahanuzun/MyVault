@@ -168,14 +168,33 @@ async def create_transaction(
     portfolio_item = portfolio_result.scalars().first()
     
     if portfolio_item:
-        # Calculate weighted average cost
-        total_quantity = portfolio_item.quantity + transaction.quantity
-        total_cost = (portfolio_item.quantity * portfolio_item.average_cost) + (transaction.quantity * transaction.average_cost)
-        new_average_cost = total_cost / total_quantity if total_quantity > 0 else 0
-        
-        portfolio_item.quantity = total_quantity
-        portfolio_item.average_cost = new_average_cost
+        if transaction.quantity > 0:
+            # Buying: Update Weighted Average Cost
+            total_quantity = portfolio_item.quantity + transaction.quantity
+            total_cost = (portfolio_item.quantity * portfolio_item.average_cost) + (transaction.quantity * transaction.average_cost)
+            # Avoid division by zero
+            new_average_cost = total_cost / total_quantity if total_quantity > 0 else 0
+            
+            portfolio_item.quantity = total_quantity
+            portfolio_item.average_cost = new_average_cost
+        else:
+            # Selling: Cost basis doesn't change (FIFO/LIFO ignored), only quantity reduces.
+            # transaction.quantity is negative here.
+            
+            if portfolio_item.quantity + transaction.quantity < 0:
+                 raise HTTPException(status_code=400, detail="Insufficient quantity to sell")
+            
+            portfolio_item.quantity += transaction.quantity
+            
+            # If quantity becomes 0, we can either keep it or delete it.
+            # Deleting it keeps the DB clean.
+            if portfolio_item.quantity <= 0:
+                await db.delete(portfolio_item)
+
     else:
+        if transaction.quantity < 0:
+            raise HTTPException(status_code=400, detail="Cannot sell asset you do not own")
+
         portfolio_item = Portfolio(
             user_id=current_user.id,
             asset_id=transaction.asset_id,

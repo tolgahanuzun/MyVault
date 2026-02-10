@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import backend.admin
 import os
@@ -28,6 +29,16 @@ async def lifespan(app: FastAPI):
     # Actions on shutdown (e.g. scheduler.shutdown if needed)
 
 app = FastAPI(title="Portfolio Tracker API", version="1.0.0", lifespan=lifespan)
+
+# CORS Configuration
+# In production, specify exact origins instead of ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Middleware for language handling
 @app.middleware("http")

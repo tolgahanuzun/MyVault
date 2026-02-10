@@ -1,6 +1,6 @@
 from backend.database import AsyncSessionLocal
 from backend.models import User
-import bcrypt
+from backend.security import get_password_hash
 import sys
 import getpass
 import asyncio
@@ -19,8 +19,8 @@ async def create_superuser(username, password, full_name="Admin User"):
                 print(f"WARNING: User '{username}' already exists.")
                 return
 
-            # Hash password
-            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            # Hash password using backend security module
+            hashed_password = get_password_hash(password)
 
             # Create new user
             new_user = User(

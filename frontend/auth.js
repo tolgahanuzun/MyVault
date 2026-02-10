@@ -4,7 +4,7 @@ const Auth = {
     // Login
     async login(username, password) {
         try {
-            const response = await fetch(`${API_BASE}/auth/login`, {
+            const response = await fetch(`${Config.API_BASE_URL}${Config.ENDPOINTS.LOGIN}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -28,8 +28,16 @@ const Auth = {
     
     // Register
     async register(username, password, fullName) {
+        // Validation
+        if (!this.validatePassword(password)) {
+            return { 
+                success: false, 
+                message: 'Password must be at least 8 characters long and contain uppercase, lowercase letters and numbers.' 
+            };
+        }
+
         try {
-            const response = await fetch(`${API_BASE}/auth/register`, {
+            const response = await fetch(`${Config.API_BASE_URL}${Config.ENDPOINTS.REGISTER}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -44,8 +52,6 @@ const Auth = {
             const data = await response.json();
             
             if (response.ok) {
-                // Auto login on register? Or return success.
-                // The API returns the token on register too in my implementation.
                 localStorage.setItem(this.tokenKey, data.access_token);
                 return { success: true };
             } else {
@@ -94,5 +100,16 @@ const Auth = {
     // Handle 401
     handleUnauthorized() {
         this.logout();
+    },
+
+    // Validation Helper
+    validatePassword(password) {
+        if (password.length < 8) return false;
+        if (!/[A-Z]/.test(password)) return false;
+        if (!/[a-z]/.test(password)) return false;
+        if (!/[0-9]/.test(password)) return false;
+        return true;
     }
 };
+
+window.Auth = Auth;

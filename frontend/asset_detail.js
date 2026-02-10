@@ -35,18 +35,7 @@ window.changeLanguage = function(lang) {
 
 async function loadAssetDetail(id) {
     try {
-        const response = await fetch(`${API_BASE}/assets/${id}`, {
-            headers: Auth.getHeaders()
-        });
-        
-        if (response.status === 401) {
-            Auth.handleUnauthorized();
-            return;
-        }
-
-        if (!response.ok) throw new Error("Failed to fetch asset");
-        
-        const asset = await response.json();
+        const asset = await API.get(Config.ENDPOINTS.ASSETS + id);
         
         // Update Title
         const titleEl = document.getElementById('assetTitle');
@@ -70,18 +59,7 @@ async function loadAssetDetail(id) {
 
 async function loadMyPosition(id) {
     try {
-        const response = await fetch(`${API_BASE}/portfolio/asset/${id}`, {
-            headers: Auth.getHeaders()
-        });
-
-        if (response.status === 401) {
-            Auth.handleUnauthorized();
-            return;
-        }
-
-        if (!response.ok) throw new Error("Failed to fetch position");
-        
-        const item = await response.json();
+        const item = await API.get(Config.ENDPOINTS.PORTFOLIO + 'asset/' + id);
         
         // Use new IDs from refactored HTML
         const qtyEl = document.getElementById('detailQuantity');
