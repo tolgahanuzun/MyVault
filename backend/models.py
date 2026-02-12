@@ -8,6 +8,10 @@ class AssetType(str, enum.Enum):
     FUND = "FUND"
     STOCK = "STOCK"
 
+class OrderType(str, enum.Enum):
+    BUY = "BUY"
+    SELL = "SELL"
+
 class User(Base):
     __tablename__ = "users"
 
@@ -52,6 +56,7 @@ class Portfolio(Base):
     
     user = relationship("User", back_populates="portfolios")
     asset = relationship("Asset", back_populates="portfolios")
+    orders = relationship("Order", back_populates="portfolio", cascade="all, delete-orphan")
 
     def __str__(self):
         return f"ID:{self.id}: {self.quantity} - {self.average_cost}"
@@ -79,3 +84,20 @@ class PriceHistory(Base):
     __table_args__ = (
         UniqueConstraint('asset_id', 'date', name='uix_price_asset_date'),
     )
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    portfolio_id = Column(Integer, ForeignKey("portfolios.id"))
+    type = Column(String) # BUY or SELL (stored as string but uses OrderType enum in logic)
+    quantity = Column(Float) # Transaction quantity (always positive)
+    price = Column(Float) # Transaction price
+    executed_at = Column(DateTime, default=datetime.utcnow)
+    profit_snapshot = Column(Float, nullable=True) # Realized profit for SELL orders
+    cost_snapshot = Column(Float) # Average cost at the time of order (before update for BUY, at time of SELL)
+
+    portfolio = relationship("Portfolio", back_populates="orders")
+
+    def __str__(self):
+        return f"ID:{self.id}: {self.type} - {self.quantity} @ {self.price}"

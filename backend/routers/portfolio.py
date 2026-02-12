@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, cast, Date
 from backend.database import get_db
-from backend.models import Portfolio, Asset, PriceHistory, User
+from backend.models import Portfolio, Asset, PriceHistory, User, Order, OrderType
 from backend.security import get_current_user
 from pydantic import BaseModel
 from typing import List
@@ -18,9 +18,24 @@ class PortfolioBase(BaseModel):
     quantity: float
     average_cost: float
 
-class TransactionCreate(PortfolioBase):
-    pass 
-    # user_id is removed, inferred from token
+class OrderCreate(BaseModel):
+    asset_id: int
+    type: OrderType
+    quantity: float
+    price: float
+    executed_at: datetime | None = None
+
+class OrderResponse(BaseModel):
+    id: int
+    type: str
+    quantity: float
+    price: float
+    executed_at: datetime
+    profit_snapshot: float | None
+    cost_snapshot: float | None
+    
+    class Config:
+        from_attributes = True
 
 class PortfolioHistoryItem(BaseModel):
     date: str
@@ -251,54 +266,109 @@ async def read_portfolio_asset(
         profit_loss_percent=profit_loss_percent
     )
 
-@router.post("/transaction")
-async def create_transaction(
-    transaction: TransactionCreate, 
+@router.post("/add_asset/{asset_id}")
+async def add_asset_to_portfolio(
+    asset_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check if asset exists in portfolio
-    portfolio_result = await db.execute(select(Portfolio).filter(
+    # Check if exists
+    result = await db.execute(select(Portfolio).filter(
         Portfolio.user_id == current_user.id,
-        Portfolio.asset_id == transaction.asset_id
+        Portfolio.asset_id == asset_id
     ))
-    portfolio_item = portfolio_result.scalars().first()
-    
-    if portfolio_item:
-        if transaction.quantity > 0:
-            # Buying: Update Weighted Average Cost
-            total_quantity = portfolio_item.quantity + transaction.quantity
-            total_cost = (portfolio_item.quantity * portfolio_item.average_cost) + (transaction.quantity * transaction.average_cost)
-            # Avoid division by zero
-            new_average_cost = total_cost / total_quantity if total_quantity > 0 else 0
-            
-            portfolio_item.quantity = total_quantity
-            portfolio_item.average_cost = new_average_cost
-        else:
-            # Selling: Cost basis doesn't change (FIFO/LIFO ignored), only quantity reduces.
-            # transaction.quantity is negative here.
-            
-            if portfolio_item.quantity + transaction.quantity < 0:
-                 raise HTTPException(status_code=400, detail="Insufficient quantity to sell")
-            
-            portfolio_item.quantity += transaction.quantity
-            
-            # If quantity becomes 0, we can either keep it or delete it.
-            # Deleting it keeps the DB clean.
-            if portfolio_item.quantity <= 0:
-                await db.delete(portfolio_item)
-
-    else:
-        if transaction.quantity < 0:
-            raise HTTPException(status_code=400, detail="Cannot sell asset you do not own")
-
-        portfolio_item = Portfolio(
-            user_id=current_user.id,
-            asset_id=transaction.asset_id,
-            quantity=transaction.quantity,
-            average_cost=transaction.average_cost
-        )
-        db.add(portfolio_item)
-    
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="Asset already in portfolio")
+        
+    # Check if asset valid
+    asset = await db.get(Asset, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    new_item = Portfolio(
+        user_id=current_user.id,
+        asset_id=asset_id,
+        quantity=0,
+        average_cost=0
+    )
+    db.add(new_item)
     await db.commit()
-    return {"message": "Transaction successful"}
+    return {"message": "Asset added to portfolio"}
+
+@router.post("/order")
+async def create_order(
+    order_data: OrderCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Fetch Portfolio
+    result = await db.execute(select(Portfolio).filter(
+        Portfolio.user_id == current_user.id,
+        Portfolio.asset_id == order_data.asset_id
+    ))
+    portfolio_item = result.scalars().first()
+    
+    if not portfolio_item:
+        raise HTTPException(status_code=400, detail="Asset not found in portfolio. Please add it first.")
+    
+    # 2. Logic
+    if order_data.executed_at is None:
+        order_data.executed_at = datetime.utcnow()
+
+    # Create Order object
+    new_order = Order(
+        portfolio_id=portfolio_item.id,
+        type=order_data.type,
+        quantity=order_data.quantity,
+        price=order_data.price,
+        executed_at=order_data.executed_at,
+        cost_snapshot=portfolio_item.average_cost
+    )
+
+    if order_data.type == OrderType.BUY:
+        # Buy Logic
+        # New Avg Cost = ((Old Qty * Old Cost) + (New Qty * New Price)) / Total Qty
+        total_cost_basis = (portfolio_item.quantity * portfolio_item.average_cost) + (order_data.quantity * order_data.price)
+        total_quantity = portfolio_item.quantity + order_data.quantity
+        
+        portfolio_item.average_cost = total_cost_basis / total_quantity if total_quantity > 0 else 0
+        portfolio_item.quantity = total_quantity
+        
+    elif order_data.type == OrderType.SELL:
+        # Sell Logic
+        if portfolio_item.quantity < order_data.quantity:
+             raise HTTPException(status_code=400, detail="Insufficient quantity to sell")
+             
+        # Realized Profit = (Sell Price - Avg Cost) * Sell Qty
+        # Use current avg cost for profit calc
+        realized_profit = (order_data.price - portfolio_item.average_cost) * order_data.quantity
+        new_order.profit_snapshot = realized_profit
+        
+        portfolio_item.quantity -= order_data.quantity
+        # Avg Cost remains same for weighted average method on Sell
+            
+    db.add(new_order)
+    await db.commit()
+    return {"message": "Order processed successfully"}
+
+@router.get("/orders/{asset_id}", response_model=List[OrderResponse])
+async def get_asset_orders(
+    asset_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Find portfolio
+    result = await db.execute(select(Portfolio).filter(
+        Portfolio.user_id == current_user.id,
+        Portfolio.asset_id == asset_id
+    ))
+    portfolio_item = result.scalars().first()
+    
+    if not portfolio_item:
+         return []
+         
+    # Fetch orders
+    orders_result = await db.execute(
+        select(Order).filter(Order.portfolio_id == portfolio_item.id).order_by(Order.executed_at.desc())
+    )
+    return orders_result.scalars().all()

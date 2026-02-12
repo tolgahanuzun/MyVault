@@ -1,5 +1,5 @@
 from fastadmin import SqlAlchemyModelAdmin, register, WidgetType, action
-from backend.models import User, Asset, Portfolio, PriceHistory
+from backend.models import User, Asset, Portfolio, PriceHistory, Order
 from backend.database import AsyncSessionLocal
 from backend.services.fetcher import fetch_fund_prices
 from backend.security import verify_password, get_password_hash
@@ -97,6 +97,17 @@ class PriceHistoryAdmin(BaseAdmin):
     list_display = ("id", "asset", "date", "price")
     list_filter = ("asset", "date")
     fields = ("asset", "price")
+    
     formfield_overrides = {
         "date": (WidgetType.Input, {}),
+    }
+
+@register(Order, sqlalchemy_sessionmaker=AsyncSessionLocal)
+class OrderAdmin(BaseAdmin):
+    list_display = ("id", "portfolio", "type", "quantity", "price", "executed_at", "profit_snapshot")
+    list_filter = ("type", "portfolio")
+    fields = ("portfolio", "type", "quantity", "price", "executed_at", "profit_snapshot", "cost_snapshot")
+    
+    formfield_overrides = {
+        "executed_at": (WidgetType.Input, {}),
     }
