@@ -12,6 +12,7 @@ const TRANSLATIONS = {
         btn_new_asset: "New Asset",
         btn_add_transaction: "New Transaction",
         my_assets: "My Assets",
+        msg_price_updated: "Asset prices have been updated successfully.",
         col_code: "Code",
         col_name: "Name",
         col_quantity: "Quantity",
@@ -56,6 +57,7 @@ const TRANSLATIONS = {
         btn_new_asset: "Yeni Varlık",
         btn_add_transaction: "İşlem Ekle",
         my_assets: "Varlıklarım",
+        msg_price_updated: "Varlık fiyatları başarıyla güncellendi.",
         col_code: "Kod",
         col_name: "Ad",
         col_quantity: "Adet",
@@ -200,24 +202,32 @@ async function loadLayoutUserData() {
 
 async function triggerPriceUpdate(e) {
     e.preventDefault();
-    if (!confirm("Tüm fon fiyatları güncellenecek. Bu işlem biraz sürebilir. Devam etmek istiyor musunuz?")) {
-        return;
-    }
+    
+    const btn = e.target.closest('a');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+    btn.classList.add('disabled');
     
     try {
-        const response = await fetch(`${API_BASE}/assets/fetch-prices`, {
+        // Use relative path since API_BASE is empty
+        const response = await fetch(`/assets/fetch-prices`, {
             method: 'POST',
             headers: Auth.getHeaders()
         });
 
         if (response.ok) {
-            alert("Fiyat güncelleme işlemi başarıyla başlatıldı.");
+            localStorage.setItem('priceUpdateSuccess', 'true');
+            window.location.reload();
         } else {
             alert("İşlem başlatılamadı. Yetkiniz olmayabilir.");
+            btn.innerHTML = originalText;
+            btn.classList.remove('disabled');
         }
     } catch (error) {
         console.error(error);
         alert("Bir hata oluştu.");
+        btn.innerHTML = originalText;
+        btn.classList.remove('disabled');
     }
 }
 

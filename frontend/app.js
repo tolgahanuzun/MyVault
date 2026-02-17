@@ -1,6 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     if (!Auth.requireAuth()) return;
     
+    // Check for price update success
+    if (localStorage.getItem('priceUpdateSuccess') === 'true') {
+        const alertEl = document.getElementById('priceUpdateAlert');
+        if (alertEl) {
+            alertEl.classList.remove('d-none');
+            // Remove the flag so it doesn't show again on reload
+            localStorage.removeItem('priceUpdateSuccess');
+        }
+    }
+    
     // Initial Load
     updateUserInfo();
     loadPortfolio();
