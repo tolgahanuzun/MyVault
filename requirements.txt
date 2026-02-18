@@ -12,3 +12,6 @@ python-multipart
 httpx
 python-jose[cryptography]
 passlib[bcrypt]
+python-dotenv
+aiosqlite
+fastadmin
