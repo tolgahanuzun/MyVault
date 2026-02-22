@@ -64,6 +64,8 @@ body {
     flex-direction: column;
     min-height: 100vh;
     transition: margin-left 0.3s;
+    width: 100%;
+    overflow-x: hidden;
 }
 
 /* Topbar Styles */
@@ -183,6 +185,10 @@ body {
 
     .main-wrapper {
         margin-left: 0;
+    }
+
+    .content-area {
+        padding: 1rem;
     }
 
     .overlay {

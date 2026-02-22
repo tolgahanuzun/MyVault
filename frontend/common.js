@@ -249,6 +249,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebarBtn = document.getElementById('sidebarCollapse');
     if (sidebarBtn) sidebarBtn.addEventListener('click', window.toggleSidebar);
     
+    // Close sidebar when a link is clicked on mobile
+    if (window.innerWidth <= 768) {
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (document.getElementById('sidebar').classList.contains('active')) {
+                    window.toggleSidebar();
+                }
+            });
+        });
+    }
+    
     // Check for view param in URL (e.g. ?view=assets)
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
