@@ -26,8 +26,8 @@ def update_prices_job():
 
 def start_scheduler():
     scheduler = BackgroundScheduler()
-    # Run every day at 20:00 (TEFAS is usually updated in the evening)
-    scheduler.add_job(update_prices_job, 'cron', minute=0)
+    # Run hourly between 10:00 and 17:00 (TR time)
+    scheduler.add_job(update_prices_job, 'cron', hour='10-17', minute=0, timezone='Europe/Istanbul')
     # Run once on startup (for testing)
     scheduler.add_job(update_prices_job, 'date', run_date=datetime.now() + timedelta(seconds=10)) 
     scheduler.start()
