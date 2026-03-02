@@ -1,13 +1,12 @@
-from tefas import Crawler
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import cast, Date, func, select, desc
+from sqlalchemy import cast, Date, func, select
 from backend.models import Asset, PriceHistory, AssetType
-from datetime import datetime, date, timedelta, time
+from datetime import datetime, date, timedelta
 import logging
 import requests
-from bs4 import BeautifulSoup
 import time
 import random
+from backend.config import settings
 
 # Logger configuration
 logging.basicConfig(level=logging.INFO)
@@ -15,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 async def fetch_fund_prices(db: AsyncSession):
     """
-    Fetches latest prices for all funds in the database from TEFAS web page HTML and saves them.
-    Iterates through all tracked funds and scrapes the price individually.
+    Fetches latest prices for all funds in the database from our internal API and saves them.
+    Iterates through all tracked funds and fetches the price individually.
     Implements ordering by last update time (oldest first) and retry mechanism.
     """
     
@@ -49,29 +48,10 @@ async def fetch_fund_prices(db: AsyncSession):
     one_hour_ago = datetime.now() - timedelta(hours=1)
     new_records_count = 0
 
-    # Initialize Session with browser-like headers
+    # Initialize Session
     session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:148.0) Gecko/20100101 Firefox/148.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'tr-TR,tr;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Cache-Control': 'max-age=0',
-    })
-
-    # Initial request to main page to get cookies/session tokens
-    try:
-        logger.info("Initializing TEFAS session...")
-        session.get("https://www.tefas.gov.tr/Default.aspx", timeout=10)
-        time.sleep(1) # Wait a bit after initial connection
-    except Exception as e:
-        logger.warning(f"Initial session setup failed, continuing might fail: {e}")
+    if settings.API_TOKEN:
+        session.headers.update({'Authorization': f'Token {settings.API_TOKEN}'})
 
     for row in funds_data:
         fund = row[0]
@@ -93,28 +73,28 @@ async def fetch_fund_prices(db: AsyncSession):
                 continue
 
         retry_count = 0
-        max_retries = 10
+        max_retries = 3
         price = None
         
         while retry_count < max_retries:
             try:
-                # Add random delay to avoid WAF blocking (increasing with retries)
-                delay = random.uniform(0.5, 2.0) + (retry_count * 0.5)
-                time.sleep(delay)
+                # Add small delay to be gentle on our own API
+                time.sleep(0.1)
                 
-                # Fetch price from web using the shared session
-                price = fetch_fund_price_from_web(fund.code, session)
+                # Fetch price from API
+                price = fetch_fund_price_from_api(fund.code, session)
                 
                 if price is not None:
                     break # Success
                 
-                # If price is None (e.g. CAPTCHA or parse error), retry
                 retry_count += 1
                 logger.warning(f"Attempt {retry_count}/{max_retries} failed for {fund.code}. Retrying...")
+                time.sleep(1) # Wait before retry
                 
             except Exception as e:
                 logger.error(f"Error processing fund {fund.code} (Attempt {retry_count + 1}): {e}")
                 retry_count += 1
+                time.sleep(1)
         
         if price is None:
             logger.error(f"Failed to fetch price for {fund.code} after {max_retries} attempts. Skipping.")
@@ -160,63 +140,29 @@ async def fetch_fund_prices(db: AsyncSession):
         logger.error(f"Database commit error: {e}")
         await db.rollback()
 
-def fetch_fund_price_from_web(fund_code: str, session: requests.Session = None) -> float | None:
+def fetch_fund_price_from_api(fund_code: str, session: requests.Session = None) -> float | None:
     """
-    Fetches the latest price of a specific fund directly from TEFAS web page HTML.
-    Target URL: https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code}
-    Uses a requests.Session if provided to maintain cookies.
+    Fetches the latest price of a specific fund from our internal API.
+    Target URL: {API_BASE_URL}/api/v1/myvault/funds/{fund_code}/
     """
-    url = f"https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod={fund_code.upper()}"
+    base_url = settings.API_BASE_URL.rstrip('/')
+    url = f"{base_url}/api/v1/myvault/funds/{fund_code.upper()}/"
     
     try:
-        # Use provided session or create a new temporary one
-        if session:
-            req_obj = session
-        else:
-            req_obj = requests
-            # If creating new request without session, at least add User-Agent
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:148.0) Gecko/20100101 Firefox/148.0'
-            }
+        req_obj = session if session else requests
         
-        # If using session, headers are already set in session
-        if session:
-            response = req_obj.get(url, timeout=10)
-        else:
-            response = req_obj.get(url, headers=headers, timeout=10)
-            
+        response = req_obj.get(url, timeout=10)
         response.raise_for_status()
         
-        soup = BeautifulSoup(response.content, 'html.parser')
+        data = response.json()
         
-        # Check for CAPTCHA/WAF page by looking for specific elements or title
-        if "captcha" in response.text.lower() or "support id" in response.text.lower():
-            logger.warning(f"CAPTCHA/WAF detected for {fund_code}")
+        # Expected format: {"code": "AFT", "price": 12.3456, "source": "...", "timestamp": "..."}
+        if "price" in data:
+            return float(data["price"])
+        else:
+            logger.warning(f"API response missing 'price' field for {fund_code}: {data}")
             return None
-
-        # Find top-list ul
-        top_list = soup.find('ul', class_='top-list')
-        if not top_list:
-            # logger.warning(f"Could not find .top-list for fund {fund_code}")
-            # Silently fail or log debug to avoid spamming logs if WAF blocks structure
-            return None
-            
-        # Get first li element which usually contains the Last Price
-        first_li = top_list.find('li')
-        if not first_li:
-            return None
-            
-        # Find the span inside the li that contains the value
-        span = first_li.find('span')
-        if not span:
-            return None
-            
-        price_text = span.get_text(strip=True)
-        # Format: 5,348167 -> 5.348167
-        clean_price = price_text.replace('.', '').replace(',', '.')
-        
-        return float(clean_price)
 
     except Exception as e:
-        logger.error(f"Error fetching price for {fund_code} from web: {e}")
+        logger.error(f"Error fetching price for {fund_code} from API: {e}")
         return None
