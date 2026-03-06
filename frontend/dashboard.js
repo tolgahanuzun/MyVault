@@ -33,6 +33,7 @@ window.changeLanguage = function(lang) {
 }
 
 let historyChart = null;
+let profitChart = null;
 
 async function loadDashboardData() {
     try {
@@ -82,6 +83,7 @@ async function loadDashboardData() {
 
         // Draw Chart
         renderChart(historyData);
+        renderProfitChart(historyData);
 
     } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -158,6 +160,93 @@ function renderChart(data) {
                     ticks: {
                         callback: function(value) {
                             return formatCurrency(value, 0, 0); // Simplified currency
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderProfitChart(data) {
+    const ctx = document.getElementById('profitChart').getContext('2d');
+    
+    const labels = data.map(item => item.date);
+    const profits = data.map(item => item.total_profit);
+
+    if (profitChart) {
+        profitChart.destroy();
+    }
+
+    profitChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Total Profit/Loss',
+                    data: profits,
+                    borderColor: 'rgb(153, 102, 255)', // Purple line
+                    // Gradient fill logic is complex in simple config, let's use simple fill
+                    backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                    fill: {
+                        target: 'origin',
+                        above: 'rgba(75, 192, 192, 0.2)',   // Green above 0
+                        below: 'rgba(255, 99, 132, 0.2)'    // Red below 0
+                    },
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += formatCurrency(context.parsed.y, 0, 0);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: (context) => {
+                            if (context.tick.value === 0) {
+                                return 'rgba(0, 0, 0, 0.5)';
+                            }
+                            return 'rgba(0, 0, 0, 0.1)';
+                        },
+                        lineWidth: (context) => {
+                             if (context.tick.value === 0) {
+                                return 2;
+                            }
+                            return 1;
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return formatCurrency(value, 0, 0); 
                         }
                     }
                 }
