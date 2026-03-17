@@ -186,7 +186,7 @@ async function loadLayoutUserData() {
             if (avatarEl && user.avatar_url) {
                 avatarEl.src = user.avatar_url + '?t=' + new Date().getTime();
             } else if (avatarEl) {
-                 avatarEl.src = "https://via.placeholder.com/32";
+                 avatarEl.src = "/static/default-avatar.svg";
             }
 
             // Admin Button Logic
